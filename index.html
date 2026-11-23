@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moving Line Generator</title>
+
+<style>
+body {
+    margin: 20px;
+    font-family: Arial, sans-serif;
+    background: #202020;
+    color: white;
+}
+
+h2 {
+    margin-top: 0;
+}
+
+.controls {
+    display: grid;
+    grid-template-columns: 200px 250px 80px;
+    gap: 8px;
+    align-items: center;
+    max-width: 700px;
+}
+
+canvas {
+    margin-top: 20px;
+    border: 1px solid white;
+    background: black;
+}
+
+input[type="number"] {
+    width: 70px;
+}
+
+input[type="range"] {
+    width: 240px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Moving Line Generator</h2>
+
+<div class="controls">
+
+    <label>Horizontal Speed</label>
+    <input id="hSpeed" type="range" min="-500" max="500" value="100">
+    <span id="hSpeedVal">100</span>
+
+    <label>Horizontal Lines</label>
+    <input id="hCount" type="number" min="0" max="200" value="20">
+    <span></span>
+
+    <label>Vertical Speed</label>
+    <input id="vSpeed" type="range" min="-500" max="500" value="100">
+    <span id="vSpeedVal">100</span>
+
+    <label>Vertical Lines</label>
+    <input id="vCount" type="number" min="0" max="200" value="20">
+    <span></span>
+
+    <label>Horizontal Reverse</label>
+    <input id="hReverseEnabled" type="checkbox" checked>
+    <span></span>
+
+    <label>Horizontal Reverse Every (sec)</label>
+    <input id="hReverseTime" type="range" min="1" max="20" value="5">
+    <span id="hReverseVal">5</span>
+
+    <label>Vertical Reverse</label>
+    <input id="vReverseEnabled" type="checkbox" checked>
+    <span></span>
+
+    <label>Vertical Reverse Every (sec)</label>
+    <input id="vReverseTime" type="range" min="1" max="20" value="5">
+    <span id="vReverseVal">5</span>
+
+    <label>Oscillation Amount</label>
+    <input id="oscillation" type="range" min="0" max="200" value="0">
+    <span id="oscillationVal">0</span>
+
+    <label>Oscillation Period (sec)</label>
+    <input id="oscPeriod" type="range" min="1" max="30" value="5">
+    <span id="oscPeriodVal">5</span>
+
+</div>
+
+<canvas id="canvas" width="1000" height="600"></canvas>
+
+<script>
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+// Speed controls
+const hSpeedSlider = document.getElementById("hSpeed");
+const vSpeedSlider = document.getElementById("vSpeed");
+
+// Line count controls
+const hCountInput = document.getElementById("hCount");
+const vCountInput = document.getElementById("vCount");
+
+// Reverse controls
+const hReverseEnabled = document.getElementById("hReverseEnabled");
+const vReverseEnabled = document.getElementById("vReverseEnabled");
+
+const hReverseTime = document.getElementById("hReverseTime");
+const vReverseTime = document.getElementById("vReverseTime");
+
+// Oscillation controls
+const oscillationSlider = document.getElementById("oscillation");
+const oscPeriodSlider = document.getElementById("oscPeriod");
+
+// Labels
+const hSpeedVal = document.getElementById("hSpeedVal");
+const vSpeedVal = document.getElementById("vSpeedVal");
+const hReverseVal = document.getElementById("hReverseVal");
+const vReverseVal = document.getElementById("vReverseVal");
+const oscillationVal = document.getElementById("oscillationVal");
+const oscPeriodVal = document.getElementById("oscPeriodVal");
+
+// Motion state
+let offsetX = 0;
+let offsetY = 0;
+
+let directionX = 1;
+let directionY = 1;
+
+let lastHReverse = performance.now();
+let lastVReverse = performance.now();
+
+const startTime = performance.now();
+let lastFrame = performance.now();
+
+function updateLabels() {
+    hSpeedVal.textContent = hSpeedSlider.value;
+    vSpeedVal.textContent = vSpeedSlider.value;
+
+    hReverseVal.textContent = hReverseTime.value;
+    vReverseVal.textContent = vReverseTime.value;
+
+    oscillationVal.textContent = oscillationSlider.value;
+    oscPeriodVal.textContent = oscPeriodSlider.value;
+}
+
+[
+    hSpeedSlider,
+    vSpeedSlider,
+    hReverseTime,
+    vReverseTime,
+    oscillationSlider,
+    oscPeriodSlider
+].forEach(control => {
+    control.addEventListener("input", updateLabels);
+});
+
+updateLabels();
+
+function draw(time) {
+
+    const dt = (time - lastFrame) / 1000;
+    lastFrame = time;
+
+    // Independent horizontal reversal
+    if (hReverseEnabled.checked) {
+        const interval = Number(hReverseTime.value) * 1000;
+
+        if (time - lastHReverse >= interval) {
+            directionX *= -1;
+            lastHReverse = time;
+        }
+    }
+
+    // Independent vertical reversal
+    if (vReverseEnabled.checked) {
+        const interval = Number(vReverseTime.value) * 1000;
+
+        if (time - lastVReverse >= interval) {
+            directionY *= -1;
+            lastVReverse = time;
+        }
+    }
+
+    const elapsed = (time - startTime) / 1000;
+
+    const hSpeed = Number(hSpeedSlider.value);
+    const vSpeed = Number(vSpeedSlider.value);
+
+    const oscAmount = Number(oscillationSlider.value);
+    const oscPeriod = Number(oscPeriodSlider.value);
+
+    const phase = elapsed * (2 * Math.PI / oscPeriod);
+
+    // Sinusoidal contribution
+    const oscX = Math.sin(phase) * oscAmount;
+    const oscY = Math.cos(phase) * oscAmount;
+
+    offsetX += (hSpeed * directionX + oscX) * dt;
+    offsetY += (vSpeed * directionY + oscY) * dt;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 1;
+
+    const hCount = Math.max(0, Number(hCountInput.value));
+    const vCount = Math.max(0, Number(vCountInput.value));
+
+    // Vertical lines
+    if (vCount > 0) {
+
+        const spacing = canvas.width / vCount;
+
+        for (let i = -3; i <= vCount + 3; i++) {
+
+            let x = (i * spacing + offsetX) % canvas.width;
+
+            if (x < 0) x += canvas.width;
+
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+    }
+
+    // Horizontal lines
+    if (hCount > 0) {
+
+        const spacing = canvas.height / hCount;
+
+        for (let i = -3; i <= hCount + 3; i++) {
+
+            let y = (i * spacing + offsetY) % canvas.height;
+
+            if (y < 0) y += canvas.height;
+
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+    }
+
+    requestAnimationFrame(draw);
+}
+
+requestAnimationFrame(draw);
+
+</script>
+
+</body>
+</html>
